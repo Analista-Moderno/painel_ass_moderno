@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle de Webhook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilização para o toggle switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #4A90E2;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #4A90E2;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen font-sans">
+
+    <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-8">
+        <div>
+            <h1 class="text-3xl font-bold text-center text-blue-400">Painel de Controle</h1>
+            <p class="text-center text-gray-400 mt-2">Envio automático de webhooks</p>
+        </div>
+
+        <!-- Interruptor 1: Ativar / Desativar IA -->
+        <div class="flex items-center justify-between bg-gray-700 p-4 rounded-lg">
+            <span class="font-medium text-lg">Ativar/Desativar IA</span>
+            <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                <input type="checkbox" name="toggle_ia" id="toggle_ia" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                <label for="toggle_ia" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label>
+            </div>
+        </div>
+
+        <!-- Interruptor 2: Outra função genérica (Ex: Modo de Manutenção) -->
+        <div class="flex items-center justify-between bg-gray-700 p-4 rounded-lg">
+            <span class="font-medium text-lg">Modo Manutenção</span>
+            <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                <input type="checkbox" name="toggle_maintenance" id="toggle_maintenance" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                <label for="toggle_maintenance" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label>
+            </div>
+        </div>
+
+        <!-- Função 3: Desativar IA por X minutos -->
+        <div class="bg-gray-700 p-4 rounded-lg space-y-4">
+            <label for="disable_minutes" class="font-medium text-lg">Desativar IA Temporariamente</label>
+            <div class="flex items-center space-x-4">
+                <input type="number" id="disable_minutes" min="1" placeholder="Minutos" class="bg-gray-800 text-white w-full px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="send_timed_disable" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-300 whitespace-nowrap">
+                    Enviar
+                </button>
+            </div>
+        </div>
+
+        <!-- Status do Envio -->
+        <div id="status" class="text-center text-gray-400 h-6"></div>
+    </div>
+
+    <script>
+        // ##################################################################
+        // ##  ADICIONE A URL DO SEU WEBHOOK AQUI                          ##
+        // ##################################################################
+        const WEBHOOK_URL = 'https://n8n.assistentemoderno.com.br/webhook-test/e5ce8652-0121-40cf-84e6-f2fc8399e330';
+        // ##################################################################
+
+        const toggleIa = document.getElementById('toggle_ia');
+        const toggleMaintenance = document.getElementById('toggle_maintenance');
+        const timedDisableButton = document.getElementById('send_timed_disable');
+        const minutesInput = document.getElementById('disable_minutes');
+        const statusDiv = document.getElementById('status');
+        let statusTimeout;
+
+        /**
+         * Função para enviar dados para o webhook.
+         * @param {object} data - O objeto JSON a ser enviado.
+         */
+        async function sendWebhook(data) {
+            // Verifica se a URL do webhook foi alterada
+            if (WEBHOOK_URL.includes('SUA_URL_DE_WEBHOOK_AQUI')) {
+                showStatus('Por favor, configure sua URL de webhook no código.', 'error');
+                console.error('ERRO: A URL do webhook não foi definida.');
+                return;
+            }
+
+            showStatus('Enviando...', 'loading');
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                if (response.ok) {
+                    showStatus('Webhook enviado com sucesso!', 'success');
+                    console.log('Webhook sent:', data);
+                } else {
+                    showStatus(`Erro ao enviar: ${response.statusText}`, 'error');
+                    console.error('Failed to send webhook:', response);
+                }
+            } catch (error) {
+                showStatus('Erro de conexão ao enviar webhook.', 'error');
+                console.error('Error sending webhook:', error);
+            }
+        }
+        
+        /**
+         * Mostra uma mensagem de status para o usuário.
+         * @param {string} message - A mensagem a ser exibida.
+         * @param {'success'|'error'|'loading'} type - O tipo da mensagem para estilização.
+         */
+        function showStatus(message, type = 'success') {
+            clearTimeout(statusTimeout);
+            statusDiv.textContent = message;
+            
+            statusDiv.classList.remove('text-green-400', 'text-red-400', 'text-yellow-400');
+
+            if (type === 'success') {
+                statusDiv.classList.add('text-green-400');
+            } else if (type === 'error') {
+                statusDiv.classList.add('text-red-400');
+            } else { // loading
+                statusDiv.classList.add('text-yellow-400');
+            }
+
+            // Limpa a mensagem após 4 segundos, exceto se for de carregamento
+            if (type !== 'loading') {
+                statusTimeout = setTimeout(() => {
+                    statusDiv.textContent = '';
+                }, 4000);
+            }
+        }
+
+
+        // --- Event Listeners ---
+
+        // Evento para o interruptor de Ativar/Desativar IA
+        toggleIa.addEventListener('change', () => {
+            const payload = {
+                ia_active: toggleIa.checked
+            };
+            sendWebhook(payload);
+        });
+
+        // Evento para o interruptor de Modo Manutenção
+        toggleMaintenance.addEventListener('change', () => {
+            const payload = {
+                maintenance_mode: toggleMaintenance.checked
+            };
+            sendWebhook(payload);
+        });
+        
+        // Evento para o botão de Desativação Temporária
+        timedDisableButton.addEventListener('click', () => {
+            const minutes = parseInt(minutesInput.value, 10);
+            if (isNaN(minutes) || minutes < 1) {
+                showStatus('Por favor, insira um valor válido em minutos.', 'error');
+                return;
+            }
+            const payload = {
+                ia_timed_disable: true,
+                duration_minutes: minutes
+            };
+            sendWebhook(payload);
+        });
+
+    </script>
+</body>
+</html>
